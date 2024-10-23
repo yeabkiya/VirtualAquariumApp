@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'database_helper.dart'; 
 
 void main() {
   runApp(VirtualAquariumApp());
 }
 
 class VirtualAquariumApp extends StatelessWidget {
-  @override 
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Virtual Aquarium',
@@ -18,90 +19,197 @@ class VirtualAquariumApp extends StatelessWidget {
 }
 
 class AquariumScreen extends StatefulWidget {
-  @override 
+  @override
   _AquariumScreenState createState() => _AquariumScreenState();
 }
 
 class _AquariumScreenState extends State<AquariumScreen> with SingleTickerProviderStateMixin {
-  //Animation controller to handle fish movement
   late AnimationController _controller;
-
-  //Position and movement details
-  double _fishXDirection = 1.0;
-  double _fishYDirection = 1.0;
-  double _fishXPosition = 50.0;
-  double _fishYPosition = 50.0;
+  List<Map<String, dynamic>> _fishList = [];
   double _fishSpeed = 2.0;
+  Color _selectedFishColor = Colors.orange;
+  final double _fishSize = 50.0;
+  final int _maxFishCount = 10;
+  final DatabaseHelper _dbHelper = DatabaseHelper(); // Database helper instance
 
-  @override 
+  @override
   void initState() {
     super.initState();
 
-    //Initialize the AnimationController
     _controller = AnimationController(
-      duration: const Duration(seconds: 1),
+      duration: const Duration(seconds: 1), 
       vsync: this,
-      )..addListener(() {
+    )..addListener(() {
         setState(() {
-          //moves the fish in random directions
-          _fishXPosition += _fishSpeed * _fishXDirection;
-          _fishYPosition += _fishSpeed * _fishYDirection;
+          _fishList.forEach((fish) {
+            fish['xPosition'] += _fishSpeed * fish['xDirection'];
+            fish['yPosition'] += _fishSpeed * fish['yDirection'];
 
-          //checks if the fish hits the edge of the container and bounce back
-          if (_fishXPosition >= 250.0 || _fishXPosition <= 0.0) {
-            _fishXDirection = -_fishXDirection;
-          }
-          if (_fishYPosition >= 250.0 || _fishYPosition <= 0.0) {
-            _fishYDirection = -_fishYDirection;
-          }
+            if (fish['xPosition'] >= (300 - _fishSize) || fish['xPosition'] <= 0.0) {
+              fish['xDirection'] = -fish['xDirection'];
+            }
+            if (fish['yPosition'] >= (300 - _fishSize) || fish['yPosition'] <= 0.0) {
+              fish['yDirection'] = -fish['yDirection'];
+            }
+          });
         });
       });
-    //starts the animation loop
+
     _controller.repeat();
+
+    _loadAquariumSettings(); // Load settings when app starts
   }
 
   @override
   void dispose() {
-    //cleans up the controller when the widget is disposed
     _controller.dispose();
     super.dispose();
   }
 
-  @override 
+  void _addFish() {
+    if (_fishList.length < _maxFishCount) {
+      setState(() {
+        _fishList.add({
+          'xPosition': 50.0,
+          'yPosition': 50.0,
+          'xDirection': 1.0,
+          'yDirection': 1.0,
+          'color': _selectedFishColor,
+        });
+      });
+    }
+  }
+
+  Future<void> _saveAquariumSettings() async {
+    int fishCount = _fishList.length;
+    String fishColor = _selectedFishColor.toString();
+    
+    // Save the settings to the database
+    await _dbHelper.saveAquariumSettings(fishCount, _fishSpeed, fishColor);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Aquarium settings saved!')),
+    );
+  }
+
+  Future<void> _loadAquariumSettings() async {
+    // Load saved settings from the database
+    Map<String, dynamic>? settings = await _dbHelper.getAquariumSettings();
+    if (settings != null) {
+      setState(() {
+        _fishSpeed = settings['fishSpeed'];
+        _selectedFishColor = Color(int.parse(settings['fishColor']));
+        for (int i = 0; i < settings['fishCount']; i++) {
+          _addFish();
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Virtual Aquarium'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.save),
+            onPressed: _saveAquariumSettings, // Save button
+          ),
+        ],
       ),
-      body: Center(
-        child: Stack(
-          children: [
-            //Aquarium Container
-            Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                color: Colors.lightBlueAccent,
-                border: Border.all(color: Colors.blue, width: 2),
-              ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
               child: Stack(
                 children: [
-                  //Animated fish movement
-                  AnimatedPositioned(
-                    duration: Duration(milliseconds: 500),
-                    top: _fishYPosition,
-                    left: _fishXPosition,
-                    child: Image.asset(
-                      'assets/images/fish1.png',
-                      width: 50,
-                      height: 50,
+                  Container(
+                    width: 300,
+                    height: 300,
+                    decoration: BoxDecoration(
+                      color: Colors.lightBlueAccent,
+                      border: Border.all(color: Colors.blue, width: 2),
+                    ),
+                    child: Stack(
+                      children: _fishList.map((fish) {
+                        return AnimatedPositioned(
+                          duration: Duration(milliseconds: 500),
+                          top: fish['yPosition'],
+                          left: fish['xPosition'],
+                          child: Image.asset(
+                            'assets/images/fish1.png',
+                            width: _fishSize,
+                            height: _fishSize,
+                            color: fish['color'], 
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                Text('Fish Speed: ${_fishSpeed.toStringAsFixed(1)}'),
+                Slider(
+                  value: _fishSpeed,
+                  min: 1.0,
+                  max: 5.0,
+                  onChanged: (value) {
+                    setState(() {
+                      _fishSpeed = value;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Select Fish Color: '),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedFishColor = Colors.orange;
+                    });
+                  },
+                  child: CircleAvatar(backgroundColor: Colors.orange),
+                ),
+                SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedFishColor = Colors.green;
+                    });
+                  },
+                  child: CircleAvatar(backgroundColor: Colors.green),
+                ),
+                SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedFishColor = Colors.blue;
+                    });
+                  },
+                  child: CircleAvatar(backgroundColor: Colors.blue),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: _addFish,
+            child: Text('Add Fish'),
+          ),
+        ],
       ),
     );
   }
