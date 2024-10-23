@@ -57,4 +57,49 @@ class _AquariumScreenState extends State<AquariumScreen> with SingleTickerProvid
     //starts the animation loop
     _controller.repeat();
   }
+
+  @override
+  void dispose() {
+    //cleans up the controller when the widget is disposed
+    _controller.dispose();
+  }
+
+  @override 
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Virtual Aquarium'),
+      ),
+      body: Center(
+        child: Stack(
+          children: [
+            //Aquarium Container
+            Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                color: Colors.lightBlueAccent,
+                border: Border.all(color: Colors.blue, width: 2),
+              ),
+              child: Stack(
+                children: [
+                  //Animated fish movement
+                  AnimatedPositioned(
+                    duration: Duration(milliseconds: 500),
+                    top: _fishYPosition,
+                    left: _fishXPosition,
+                    child: Image.asset(
+                      'assets/images/fish1.png',
+                      width: 50,
+                      height: 50,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
