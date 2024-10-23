@@ -27,6 +27,8 @@ class _AquariumScreenState extends State<AquariumScreen> with SingleTickerProvid
   late AnimationController _controller;
 
   //Position and movement details
+  double _fishXDirection = 1.0;
+  double _fishYDirection = 1.0;
   double _fishXPosition = 50.0;
   double _fishYPosition = 50.0;
   double _fishSpeed = 2.0;
@@ -42,15 +44,15 @@ class _AquariumScreenState extends State<AquariumScreen> with SingleTickerProvid
       )..addListener(() {
         setState(() {
           //moves the fish in random directions
-          _fishXPosition += _fishSpeed;
-          _fishYPosition += _fishSpeed;
+          _fishXPosition += _fishSpeed * _fishXDirection;
+          _fishYPosition += _fishSpeed * _fishYDirection;
 
           //checks if the fish hits the edge of the container and bounce back
           if (_fishXPosition >= 250.0 || _fishXPosition <= 0.0) {
-            _fishSpeed = -_fishSpeed;
+            _fishXDirection = -_fishXDirection;
           }
           if (_fishYPosition >= 250.0 || _fishYPosition <= 0.0) {
-            _fishSpeed = -_fishSpeed;
+            _fishYDirection = -_fishYDirection;
           }
         });
       });
@@ -62,6 +64,7 @@ class _AquariumScreenState extends State<AquariumScreen> with SingleTickerProvid
   void dispose() {
     //cleans up the controller when the widget is disposed
     _controller.dispose();
+    super.dispose();
   }
 
   @override 
